@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Interface</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-box {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            padding: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 85%;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+        }
+
+        .assistant-message {
+            background-color: #e9ecef;
+            color: #212529;
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            gap: 10px;
+        }
+
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .typing-indicator {
+            display: none;
+            color: #6c757d;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+
+        .message pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .message code {
+            font-family: 'Courier New', Courier, monospace;
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .message table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .message th, .message td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .message th {
+            background-color: #f8f9fa;
+        }
+
+        .model-selector {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .model-selector select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .message img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+
+        .message blockquote {
+            border-left: 4px solid #dee2e6;
+            margin: 0;
+            padding-left: 15px;
+            color: #6c757d;
+        }
+
+        .message ul, .message ol {
+            padding-left: 20px;
+        }
+
+        .system-message {
+            font-size: 0.9em;
+            color: #6c757d;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .chart-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 15px auto;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chart-title {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-box">
+            <div class="model-selector">
+                <select id="model-select">
+                    <option value="qwen2.5-coder-32b-instruct">Qwen 2.5 Coder</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="claude35_sonnet">Claude 3.5 Sonnet</option>
+                </select>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="message assistant-message">
+                    Hello! How can I help you today? I can assist with text responses and create charts for data visualization. Try asking me to create a chart!
+                </div>
+            </div>
+            <div class="typing-indicator" id="typing-indicator">AI is typing...</div>
+            <div class="input-area">
+                <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off">
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        marked.setOptions({
+            highlight: function(code, language) {
+                if (language === 'chart') {
+                    return code; // 不对图表数据进行高亮处理
+                }
+                if (language && hljs.getLanguage(language)) {
+                    return hljs.highlight(code, { language: language }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true,
+            gfm: true
+        });
+
+        const messagesContainer = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const modelSelect = document.getElementById('model-select');
+
+        let conversationHistory = [
+            { role: "system", content: "You are a helpful assistant." },
+            { role: "assistant", content: "Hello! How can I help you today?" }
+        ];
+
+        let chartCounter = 0;
+
+        function createChart(chartData, container) {
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart-${++chartCounter}`;
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: chartData.title
+                        },
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function processMessageContent(content) {
+            const chartRegex = /```chart\n([\s\S]*?)```/g;
+            let lastIndex = 0;
+            let parts = [];
+            let match;
+
+            while ((match = chartRegex.exec(content)) !== null) {
+                // 添加图表前的文本
+                if (match.index > lastIndex) {
+                    parts.push({
+                        type: 'text',
+                        content: content.substring(lastIndex, match.index)
+                    });
+                }
+
+                // 添加图表数据
+                try {
+                    const chartData = JSON.parse(match[1]);
+                    parts.push({
+                        type: 'chart',
+                        content: chartData
+                    });
+                } catch (e) {
+                    console.error('Error parsing chart data:', e);
+                    parts.push({
+                        type: 'text',
+                        content: match[0]
+                    });
+                }
+
+                lastIndex = match.index + match[0].length;
+            }
+
+            // 添加剩余的文本
+            if (lastIndex < content.length) {
+                parts.push({
+                    type: 'text',
+                    content: content.substring(lastIndex)
+                });
+            }
+
+            return parts;
+        }
+
+        function updateLastAssistantMessage(content) {
+            const lastMessage = messagesContainer.querySelector('.assistant-message:last-child');
+            if (!lastMessage) {
+                appendMessage(content, 'assistant');
+                return;
+            }
+
+            try {
+                const data = JSON.parse(content);
+                if (data.type === 'chart') {
+                    // Create an img element for the chart
+                    const img = document.createElement('img');
+                    img.src = 'data:image/png;base64,' + data.image;
+                    img.alt = 'Generated Chart';
+                    img.style.width = '100%';
+                    img.style.maxWidth = '800px';
+                    img.style.height = 'auto';
+                    img.style.margin = '10px 0';
+                    lastMessage.appendChild(img);
+                    return;
+                }
+            } catch (e) {
+                // If not JSON or not chart data, treat as normal text content
+                const currentContent = lastMessage.innerHTML;
+                lastMessage.innerHTML = marked.parse(content);
+                lastMessage.querySelectorAll('pre code').forEach((block) => {
+                    if (!block.className.includes('language-chart')) {
+                        hljs.highlightBlock(block);
+                    }
+                });
+            }
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const userMessage = messageInput.value.trim();
+            if (!userMessage) return;
+
+            appendMessage(userMessage, 'user');
+            messageInput.value = '';
+
+            conversationHistory.push({ role: "user", content: userMessage });
+            typingIndicator.style.display = 'block';
+
+            try {
+                const response = await fetch('http://localhost:3000/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        messages: conversationHistory,
+                        model: modelSelect.value
+                    }),
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let assistantMessage = '';
+                let lastMessage = null;
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(5);
+                            if (data === '[DONE]') {
+                                break;
+                            }
+                            try {
+                                const parsed = JSON.parse(data);
+                                if (parsed.type === 'chart') {
+                                    // Handle chart data
+                                    updateLastAssistantMessage(data);
+                                } else if (parsed.content) {
+                                    // Handle text content
+                                    assistantMessage += parsed.content;
+                                    updateLastAssistantMessage(assistantMessage);
+                                }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e);
+                            }
+                        }
+                    }
+                }
+
+                conversationHistory.push({ role: "assistant", content: assistantMessage });
+
+            } catch (error) {
+                console.error('Error:', error);
+                appendMessage('Sorry, there was an error processing your request.', 'assistant');
+            } finally {
+                typingIndicator.style.display = 'none';
+            }
+        }
+
+        function appendMessage(content, role) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}-message`;
+
+            if (role === 'assistant') {
+                const parts = processMessageContent(content);
+                
+                parts.forEach(part => {
+                    if (part.type === 'text') {
+                        const textDiv = document.createElement('div');
+                        textDiv.innerHTML = marked.parse(part.content);
+                        textDiv.querySelectorAll('pre code').forEach((block) => {
+                            if (!block.className.includes('language-chart')) {
+                                hljs.highlightBlock(block);
+                            }
+                        });
+                        messageDiv.appendChild(textDiv);
+                    } else if (part.type === 'chart') {
+                        const chartContainer = document.createElement('div');
+                        chartContainer.className = 'chart-container';
+                        createChart(part.content, chartContainer);
+                        messageDiv.appendChild(chartContainer);
+                    }
+                });
+            } else {
+                messageDiv.textContent = content;
+            }
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        modelSelect.addEventListener('change', () => {
+            const systemMessage = document.createElement('div');
+            systemMessage.className = 'system-message';
+            systemMessage.textContent = `Switched to ${modelSelect.options[modelSelect.selectedIndex].text}`;
+            messagesContainer.appendChild(systemMessage);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
+    </script>
+</body>
+</html>
