@@ -20,7 +20,6 @@ class OpenAIService {
     }
 
     async generateStreamResponse(messages, model) {
-        console.log('model', model,AVAILABLE_MODELS[model]);
         if (!AVAILABLE_MODELS[model]) {
             throw new Error('Invalid model selected');
         }
