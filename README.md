@@ -17,17 +17,14 @@ A real-time chat application with streaming responses using Node.js and the Open
 npm install
 ```
 
-2. Set environment variable:
-   - Make sure the `AI_STUDIO_TOKEN` environment variable is set in your system
+2. Configure environment variables:
+   - Copy `.env.example` to `.env`:
    ```bash
-   # Linux/Mac
-   export AI_STUDIO_TOKEN=your_token_here
-   
-   # Windows (Command Prompt)
-   set AI_STUDIO_TOKEN=your_token_here
-   
-   # Windows (PowerShell)
-   $env:AI_STUDIO_TOKEN="your_token_here"
+   cp .env.example .env
+   ```
+   - Edit `.env` file and set your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your_api_key_here
    ```
 
 3. Start the server:
